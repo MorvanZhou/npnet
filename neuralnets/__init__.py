@@ -5,3 +5,4 @@ from .nn.module import Module
 from .nn import losses
 from .nn import optimizers as optim
 from .nn.variable import Variable
+from .nn.saver import Saver

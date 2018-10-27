@@ -29,6 +29,14 @@ class Module(object):
             self.params[layer.name]["grads"]["w"][:] = gw
             self.params[layer.name]["grads"]["b"][:] = gb
 
+    def save(self, path):
+        saver = nn.Saver()
+        saver.save(self, path)
+
+    def restore(self, path):
+        saver = nn.Saver()
+        saver.restore(self, path)
+
     def __call__(self, *args):
         return self.forward(*args)
 
