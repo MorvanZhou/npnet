@@ -14,6 +14,8 @@ So please feel free to read the codes.
 ## Simple usage
 Build a network with a python class and train it.
 ```
+import neuralnets as nn
+
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
