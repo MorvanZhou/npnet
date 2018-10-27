@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 
 np.random.seed(1)
 x = np.linspace(-1, 1, 200)[:, None]       # [batch, 1]
-y = x ** 2                                  # [batch, 1]
+y = x ** 2 + np.random.normal(0., 0.1, (200, 1))     # [batch, 1]
+
 
 class Net(nn.Module):
     def __init__(self):
@@ -29,11 +30,12 @@ loss_fn = nn.losses.MSE()
 
 for _ in range(1000):
     o = net.forward(x)
-    loss_ = loss_fn(o, y)
-    net.backward(loss_fn)
+    loss = loss_fn(o, y)
+    net.backward(loss)
     opt.step()
-    print(loss_)
+    print(loss)
 
-plt.plot(x, o.data)
+plt.scatter(x, y, s=20)
+plt.plot(x, o.data, c="red", lw=3)
 plt.show()
 
