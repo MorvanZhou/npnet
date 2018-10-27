@@ -13,7 +13,7 @@ So please feel free to read the codes.
 
 ## Simple usage
 Build a network with a python class and train it.
-```
+```python
 import neuralnets as nn
 
 class Net(nn.Module):
@@ -30,7 +30,7 @@ class Net(nn.Module):
 
 The training procedure starts by defining a optimizer and loss.
 
-```
+```python
 net = Net()
 opt = nn.optim.Adam(net.params, lr=0.1)
 loss_fn = nn.losses.MSE()
