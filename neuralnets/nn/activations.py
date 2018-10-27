@@ -8,8 +8,16 @@ class Activation:
     def derivative(self, x):
         raise NotImplementedError
 
-    def __call__(self, x):
-        return self.forward(x)
+    def __call__(self, *inputs):
+        return self.forward(*inputs)
+
+
+class Linear(Activation):
+    def forward(self, x):
+        return x
+
+    def derivative(self, x):
+        return np.ones_like(x)
 
 
 class ReLU(Activation):
@@ -17,7 +25,7 @@ class ReLU(Activation):
         return np.maximum(0, x)
 
     def derivative(self, x):
-        return np.where(x > 0, 1., 0.)
+        return np.where(x > 0, np.ones_like(x), np.zeros_like(x))
 
 
 class LeakyReLU(Activation):
@@ -28,7 +36,7 @@ class LeakyReLU(Activation):
         return np.maximum(self.alpha * x, x)
 
     def derivative(self, x):
-        return np.where(x > 0, 1., self.alpha)
+        return np.where(x > 0., np.ones_like(x), np.full_like(x, self.alpha))
 
 
 class ELU(Activation):
@@ -39,7 +47,7 @@ class ELU(Activation):
         return np.maximum(x, self.alpha*(np.exp(x)-1))
 
     def derivative(self, x):
-        return np.where(x > 0., 1., self.forward(x) + self.alpha)
+        return np.where(x > 0., np.ones_like(x), self.forward(x) + self.alpha)
 
 
 class Tanh(Activation):
@@ -67,9 +75,21 @@ class SoftPlus(Activation):
         return 1. / (1. + np.exp(-x))
 
 
+class SoftMax(Activation):
+    def forward(self, x, axis=-1):
+        shift_x = x - np.max(x, axis=axis, keepdims=True)   # stable softmax
+        exp = np.exp(shift_x + 1e-6)
+        return exp / np.sum(exp, axis=axis, keepdims=True)
+
+    def derivative(self, x):
+        return np.ones_like(x)
+
+
 relu = ReLU()
 leakyrelu = LeakyReLU()
 elu = ELU()
 tanh = Tanh()
 sigmoid = Sigmoid()
 softplus = SoftPlus()
+softmax = SoftMax()
+

@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-
+np.random.seed(1)
 x = np.linspace(-1, 1, 200)[:, None]       # [batch, 1]
 y = x ** 2                                  # [batch, 1]
 learning_rate = 0.001
@@ -36,16 +36,21 @@ for i in range(300):
 
     # backpropagation
     z4_delta = z4 - y
+    dw3 = a3.T.dot(z4_delta)
+    db3 = np.sum(z4_delta, axis=0, keepdims=True)
+
     z3_delta = z4_delta.dot(w3.T) * derivative_tanh(z3)
+    dw2 = a2.T.dot(z3_delta)
+    db2 = np.sum(z3_delta, axis=0, keepdims=True)
+
     z2_delta = z3_delta.dot(w2.T) * derivative_tanh(z2)
+    dw1 = x.T.dot(z2_delta)
+    db1 = np.sum(z2_delta, axis=0, keepdims=True)
 
-    w1 -= x.T.dot(z2_delta) * learning_rate
-    w2 -= a2.T.dot(z3_delta) * learning_rate
-    w3 -= a3.T.dot(z4_delta) * learning_rate
+    # update parameters
+    for param, gradient in zip([w1, w2, w3, b1, b2, b3], [dw1, dw2, dw3, db1, db2, db3]):
+        param -= learning_rate * gradient
 
-    b1 -= np.sum(z2_delta, axis=0, keepdims=True) * learning_rate
-    b2 -= np.sum(z3_delta, axis=0, keepdims=True) * learning_rate
-    b3 -= np.sum(z4_delta, axis=0, keepdims=True) * learning_rate
     print(cost)
 
 plt.plot(x, z4)
