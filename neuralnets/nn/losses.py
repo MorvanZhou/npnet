@@ -19,7 +19,8 @@ class LossFunction:
     def apply(self, prediction, target):
         raise NotImplementedError
 
-    def derivative(self):
+    @property
+    def delta(self):
         raise NotImplementedError
 
     def _store_pred_target(self, prediction, target):
@@ -40,9 +41,10 @@ class MSE(LossFunction):
         t = target if target.dtype is np.float32 else target.astype(np.float32)
         self._store_pred_target(prediction, t)
         loss = np.mean(np.square(self._pred - t))/2
-        return Loss(loss, self.derivative())
+        return Loss(loss, self.delta)
 
-    def derivative(self):
+    @property
+    def delta(self):
         t = self._target if self._target.dtype is np.float32 else self._target.astype(np.float32)
         return self._pred - t
 
@@ -55,7 +57,8 @@ class CrossEntropy(LossFunction):
     def apply(self, prediction, target):
         raise NotImplementedError
 
-    def derivative(self):
+    @property
+    def delta(self):
         raise NotImplementedError
 
 
@@ -67,13 +70,13 @@ class SoftMaxCrossEntropy(CrossEntropy):
         t = target if target.dtype is np.float32 else target.astype(np.float32)
         self._store_pred_target(prediction, t)
         loss = - np.mean(np.sum(t * np.log(self._pred), axis=-1))
-        return Loss(loss, self.derivative())
+        return Loss(loss, self.delta)
 
-    def derivative(self):
-        # according: https://deepnotes.io/softmax-crossentropy
-        sm = self._pred
+    @property
+    def delta(self):
+        # according to: https://deepnotes.io/softmax-crossentropy
         onehot_mask = self._target.astype(np.bool)
-        grad = sm.copy()
+        grad = self._pred.copy()
         grad[onehot_mask] -= 1.
         return grad / len(grad)
 
@@ -87,9 +90,10 @@ class SoftMaxCrossEntropyWithLogits(CrossEntropy):
         self._store_pred_target(prediction, t)
         sm = softmax(self._pred)
         loss = - np.mean(np.sum(t * np.log(sm), axis=-1))
-        return Loss(loss, self.derivative())
+        return Loss(loss, self.delta)
 
-    def derivative(self):
+    @property
+    def delta(self):
         grad = softmax(self._pred)
         onehot_mask = self._target.astype(np.bool)
         grad[onehot_mask] -= 1.
@@ -106,9 +110,10 @@ class SparseSoftMaxCrossEntropy(CrossEntropy):
         sm = self._pred
         log_likelihood = np.log(sm[np.arange(sm.shape[0]), target.ravel()] + self._eps)
         loss = - np.mean(log_likelihood)
-        return Loss(loss, self.derivative())
+        return Loss(loss, self.delta)
 
-    def derivative(self):
+    @property
+    def delta(self):
         grad = self._pred.copy()
         grad[np.arange(grad.shape[0]), self._target.ravel()] -= 1.
         return grad / len(grad)
@@ -124,9 +129,10 @@ class SparseSoftMaxCrossEntropyWithLogits(CrossEntropy):
         sm = softmax(self._pred)
         log_likelihood = np.log(sm[np.arange(sm.shape[0]), target.ravel()] + self._eps)
         loss = - np.mean(log_likelihood)
-        return Loss(loss, self.derivative())
+        return Loss(loss, self.delta)
 
-    def derivative(self):
+    @property
+    def delta(self):
         grad = softmax(self._pred)
         grad[np.arange(grad.shape[0]), self._target.ravel()] -= 1.
         return grad / len(grad)
@@ -143,8 +149,9 @@ class SigmoidCrossEntropy(CrossEntropy):
         loss = - np.mean(
             t * np.log(p + self._eps) + (1. - t) * np.log(1 - p + self._eps),
         )
-        return Loss(loss, self.derivative())
+        return Loss(loss, self.delta)
 
-    def derivative(self):
+    @property
+    def delta(self):
         t = self._target if self._target.dtype is np.float32 else self._target.astype(np.float32)
         return self._pred - t

@@ -8,10 +8,9 @@ class Optimizer:
         self.vars = []
         self.grads = []
         for layer_p in self._params.values():
-            l_vars = layer_p["vars"]
-            l_grads = layer_p["grads"]
-            self.vars += [l_vars["w"], l_vars["b"]]
-            self.grads += [l_grads["w"], l_grads["b"]]
+            for p_name in layer_p["vars"].keys():
+                self.vars.append(layer_p["vars"][p_name])
+                self.grads.append(layer_p["grads"][p_name])
 
     def step(self):
         raise NotImplementedError
@@ -60,7 +59,7 @@ class Adadelta(Optimizer):
         self._v = [np.zeros_like(v) for v in self.vars]
 
     def step(self):
-        # according: https://pytorch.org/docs/stable/_modules/torch/optim/adadelta.html#Adadelta
+        # according to: https://pytorch.org/docs/stable/_modules/torch/optim/adadelta.html#Adadelta
         for var, grad, m, v in zip(self.vars, self.grads, self._m, self._v):
             v[:] = self._rho * v + (1. - self._rho) * np.square(grad)
             delta = np.sqrt(m + self._eps) / np.sqrt(v + self._eps) * grad

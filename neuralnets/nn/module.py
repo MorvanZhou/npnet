@@ -25,9 +25,10 @@ class Module(object):
         # back propagate through this order
         delta = loss.delta
         for layer in self._ordered_layers[::-1]:
-            delta, gw, gb = layer.backward(delta)
-            self.params[layer.name]["grads"]["w"][:] = gw
-            self.params[layer.name]["grads"]["b"][:] = gb
+            delta, grads = layer.backward(delta)
+            self.params[layer.name]["grads"]["w"][:] = grads["gw"]
+            if layer.use_bias:
+                self.params[layer.name]["grads"]["b"][:] = grads["gb"]
 
     def save(self, path):
         saver = nn.Saver()
@@ -44,7 +45,11 @@ class Module(object):
         if isinstance(value, nn.layers.Layer):
             layer = value
             self.params[key] = {
-                    "vars": {"w": layer.w, "b": layer.b},
-                    "grads": {"w": np.empty_like(layer.w), "b": np.empty_like(layer.b)}
-                }
+                "vars": {"w": layer.w},
+                "grads": {"w": np.empty_like(layer.w)}
+            }
+            if layer.use_bias:
+                self.params[key]["vars"]["b"] = layer.b
+                self.params[key]["grads"]["b"] = np.empty_like(layer.b)
+
         object.__setattr__(self, key, value)
