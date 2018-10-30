@@ -355,14 +355,3 @@ def get_padded_and_tmp_out(img, kernel_size, strides, out_channels, padding):
     return padded_img, tmp_out, (pt, pb, pl, pr)
 
 
-if __name__ == "__main__":
-    img = np.arange(16).reshape(1, 4, 4, 1)
-    kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
-    kernel = np.ones_like(kernel)
-    l = Conv2D(1, 1, kernel_size=3, strides=1, padding="same", activation=nn.act.relu, data_format="channels_last",use_bias=False)
-    mp = MaxPool2D(2, 2, padding="valid")
-    l.w[0, :, :, 0] = kernel
-    o1 = l.forward(img)
-    o2 = mp.forward(o1)
-    dz, g = mp.backward(np.ones_like(o2.data))
-    dz, g = l.backward(dz)
