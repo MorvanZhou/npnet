@@ -32,13 +32,14 @@ net = Net()
 opt = nn.optim.Adam(net.params, lr=0.1)
 loss_fn = nn.losses.SigmoidCrossEntropy()
 
-for _ in range(1000):
+for step in range(30):
     o = net.forward(x)
     loss = loss_fn(o, y)
     net.backward(loss)
     opt.step()
-    print(loss)
+    acc = nn.metrics.accuracy(o.data > 0.5, y)
+    print("Step: %i | loss: %.5f | acc: %.2f" % (step, loss.data, acc))
 
-plt.scatter(x[:, 0], x[:, 1], c=o.data.ravel(), s=100, lw=0, cmap='RdYlGn')
+plt.scatter(x[:, 0], x[:, 1], c=(o.data > 0.5).ravel(), s=100, lw=0, cmap='RdYlGn')
 plt.show()
 

@@ -46,9 +46,11 @@ for _ in range(1000):
 
 ## Demo
 * A naked and step-by-step [network](/simple_nn.py) without using my module.
-* [Train a regressor](/train_regressor.py)
-* [Train a classifier](/train_classifier.py)
+* [Train regressor](/train_regressor.py)
+* [Train classifier](/train_classifier.py)
+* [Train CNN](/train_cnn.py)
 * [Save and restore a trained net](/save_model.py)
+
 
 ## Download or fork
 Download [link](https://github.com/MorvanZhou/simple-neural-networks/archive/master.zip)

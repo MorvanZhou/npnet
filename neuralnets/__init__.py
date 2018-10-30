@@ -1,8 +1,10 @@
-from .nn import layers
-from .nn import initializers as init
-from .nn import activations as act
-from .nn.module import Module
-from .nn import losses
-from .nn import optimizers as optim
-from .nn.variable import Variable
-from .nn.saver import Saver
+from . import layers
+from . import initializers as init
+from . import activations as act
+from .module import Module
+from . import losses
+from . import optimizers as optim
+from .variable import Variable
+from .saver import Saver
+from .dataloader import DataLoader
+from . import metrics

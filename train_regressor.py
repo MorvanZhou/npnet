@@ -28,12 +28,12 @@ net = Net()
 opt = nn.optim.Adam(net.params, lr=0.1)
 loss_fn = nn.losses.MSE()
 
-for _ in range(1000):
+for step in range(100):
     o = net.forward(x)
     loss = loss_fn(o, y)
     net.backward(loss)
     opt.step()
-    print(loss)
+    print("Step: %i | loss: %.5f" % (step, loss.data))
 
 plt.scatter(x, y, s=20)
 plt.plot(x, o.data, c="red", lw=3)
