@@ -1,6 +1,7 @@
 import neuralnets as nn
 import numpy as np
 
+np.random.seed(1)
 f = np.load('./mnist.npz')
 train_x, train_y = f['x_train'][:, :, :, None], f['y_train'][:, None]
 test_x, test_y = f['x_test'][:2000][:, :, :, None], f['y_test'][:2000]
@@ -21,13 +22,14 @@ class CNN(nn.Module):
         )
 
     def forward(self, x):
-        o = self.seq_layers(x)
+        o = self.seq_layers.forward(x)
         return o
 
 
 cnn = CNN()
 opt = nn.optim.Adam(cnn.params, 0.001)
 loss_fn = nn.losses.SparseSoftMaxCrossEntropyWithLogits()
+
 
 for step in range(300):
     bx, by = train_loader.next_batch()

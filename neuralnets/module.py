@@ -26,10 +26,9 @@ class Module(object):
         dz = loss.delta
         for layer in self._ordered_layers[::-1]:
             dz, grads = layer.backward(dz)
-            if grads:
-                self.params[layer.name]["grads"]["w"][:] = grads["gw"]
-                if layer.__dict__.get("use_bias"):
-                    self.params[layer.name]["grads"]["b"][:] = grads["gb"]
+            if isinstance(layer, nn.layers.ParamLayer):
+                for k in layer.vars.keys():
+                    self.params[layer.name]["grads"][k][:] = grads[k]
 
     def save(self, path):
         saver = nn.Saver()
@@ -52,13 +51,9 @@ class Module(object):
         if isinstance(value, nn.layers.ParamLayer):
             layer = value
             self.params[key] = {
-                "vars": {"w": layer.w},
-                "grads": {"w": np.empty_like(layer.w)}
+                "vars": layer.vars,
+                "grads": {k: np.empty_like(layer.vars[k]) for k in layer.vars.keys()}
             }
-            if layer.use_bias:
-                self.params[key]["vars"]["b"] = layer.b
-                self.params[key]["grads"]["b"] = np.empty_like(layer.b)
-
         object.__setattr__(self, key, value)
 
 

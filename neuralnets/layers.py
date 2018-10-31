@@ -33,11 +33,14 @@ class BaseLayer:
 class ParamLayer(BaseLayer):
     def __init__(self, w_shape, activation, w_initializer, b_initializer, use_bias):
         super().__init__()
+        self.vars = {}
         self.w = np.empty(w_shape, dtype=np.float32)
+        self.vars["w"] = self.w
         if use_bias:
             shape = [1]*len(w_shape)
             shape[-1] = w_shape[-1]     # only have bias on the last dimension
             self.b = np.empty(shape, dtype=np.float32)
+            self.vars["b"] = self.b
         self.use_bias = use_bias
 
         if activation is None:
@@ -105,9 +108,9 @@ class Dense(ParamLayer):
     def backward(self, dz):
         # dw, db
         dz = dz * self._a.derivative(self._wx_b)
-        grads = {"gw": self._x.T.dot(dz)}
+        grads = {"w": self._x.T.dot(dz)}
         if self.use_bias:
-            grads["gb"] = np.sum(dz, axis=0, keepdims=True)
+            grads["b"] = np.sum(dz, axis=0, keepdims=True)
         # dx
         dx = dz.dot(self.w.T)
         return dx, grads
@@ -158,7 +161,8 @@ class Conv2D(ParamLayer):
             self._wx_b += self.b
 
         self._activated = self._a(self._wx_b)
-        out = nn.Variable(self._activated if self.data_format == "channels_last" else self._activated.transpose((0, 3, 1, 2)))
+        out = nn.Variable(
+            self._activated if self.data_format == "channels_last" else self._activated.transpose((0, 3, 1, 2)))
         out.info["new_layer_order"] = self.order + 1
         return out
 
@@ -171,9 +175,9 @@ class Conv2D(ParamLayer):
         dw = np.empty_like(self.w)  # [c,h,w,out]
         dw = self.convolution(self._padded.transpose((3, 1, 2, 0)), dz, dw)
 
-        grads = {"gw": dw}
+        grads = {"w": dw}
         if self.use_bias:   # tied biases
-            grads["gb"] = np.sum(dz, axis=(0, 1, 2), keepdims=True)
+            grads["b"] = np.sum(dz, axis=(0, 1, 2), keepdims=True)
 
         # dx
         padded_dx = np.zeros_like(self._padded)    # [n, h, w, c]
@@ -184,8 +188,8 @@ class Conv2D(ParamLayer):
                 padded_dx[:, i*s0:i*s0+k0, j*s1:j*s1+k1, :] += dz[:, i, j, :].reshape((-1, self.out_channels)).dot(
                                                             t_flt.reshape((self.out_channels, -1))
                                                         ).reshape((-1, k0, k1, padded_dx.shape[-1]))
-        t, b, l, r = self._p_tblr[0], padded_dx.shape[1] - self._p_tblr[1], self._p_tblr[2], padded_dx.shape[2] - \
-                     self._p_tblr[3]
+        t, b, l, r = [self._p_tblr[0], padded_dx.shape[1] - self._p_tblr[1],
+                      self._p_tblr[2], padded_dx.shape[2] - self._p_tblr[3]]
         dx = padded_dx[:, t:b, l:r, :]
         return dx, grads
 
@@ -195,12 +199,61 @@ class Conv2D(ParamLayer):
         s0, s1, k0, k1 = self.strides + tuple(flt.shape[1:3])
         for i in range(0, conved.shape[1]):  # in each row of the convoluted feature map
             for j in range(0, conved.shape[2]):  # in each column of the convoluted feature map
-                x_seg_matrix = x[:, i*s0:i*s0+k0, j*s1:j*s1+k1, :
-                            ].reshape((batch_size, -1))  # [n,h,w,c] => [n, h*w*c]
+                x_seg_matrix = x[:, i*s0:i*s0+k0, j*s1:j*s1+k1, :].reshape((batch_size, -1))  # [n,h,w,c] => [n, h*w*c]
                 flt_matrix = t_flt.reshape((-1, flt.shape[-1]))  # [h,w,c, out] => [h*w*c, out]
                 filtered = x_seg_matrix.dot(flt_matrix)  # sum of filtered window [n, out]
                 conved[:, i, j, :] = filtered
         return conved
+
+    def fast_convolution(self, x, flt, conved):
+        # according to:
+        # http://fanding.xyz/2017/09/07/CNN%E5%8D%B7%E7%A7%AF%E7%BD%91%E7%BB%9C%E7%9A%84Python%E5%AE%9E%E7%8E%B0III-CNN%E5%AE%9E%E7%8E%B0/
+
+        # create patch matrix
+        oh, ow, sh, sw, fh, fw = [conved.shape[1], conved.shape[2], self.strides[0],
+                                  self.strides[1], flt.shape[1], flt.shape[2]]
+        n, h, w, c = x.shape
+        shape = (n, oh, ow, fh, fw, c)
+        strides = (c * h * w, sh * w, sw, w, 1, h * w)
+        strides = x.itemsize * np.array(strides)
+        x_col = np.lib.stride_tricks.as_strided(x, shape=shape, strides=strides, writeable=False)
+        x_col = np.ascontiguousarray(x_col)
+        x_col.shape = (n * oh * ow, fh * fw * c)    # [n*oh*ow, fh*fw*c]
+        self._padded_col = x_col       # padded [n,h,w,c] => [n*oh*ow, h*w*c]
+        w_t = flt.transpose((1, 2, 0, 3)).reshape(-1, self.out_channels)  # => [hwc, oc]
+
+        # IMPORTANT! as_stride function has some wired behaviours
+        # which gives a not accurate result (precision issue) when performing matrix dot product.
+        # I have compared the fast convolution with normal convolution and cannot explain the precision issue.
+        wx = self._padded_col.dot(w_t)  # [n*oh*ow, fh*fw*c] dot [fh*fw*c, oc] => [n*oh*ow, oc]
+        return wx.reshape(conved.shape)
+
+    def fast_backward(self, dz):
+        dz[:] = dz * self._a.derivative(self._wx_b)
+
+        # dw, db
+        dz_reshape = dz.reshape(-1, self.out_channels)      # => [n*oh*ow, oc]
+        # self._padded_col.T~[fh*fw*c, n*oh*ow] dot [n*oh*ow, oc] => [fh*fw*c, oc]
+        dw = self._padded_col.T.dot(dz_reshape).reshape(self.kernel_size[0], self.kernel_size[1], -1, self.out_channels)
+        dw = dw.transpose(2, 0, 1, 3)   # => [c, fh, fw, oc]
+        grads = {"w": dw}
+        if self.use_bias:  # tied biases
+            grads["b"] = np.sum(dz, axis=(0, 1, 2), keepdims=True)
+
+        # dx
+        padded_dx = np.zeros_like(self._padded)  # [n, h, w, c]
+        s0, s1, k0, k1 = self.strides + self.kernel_size
+        t_flt = self.w.transpose((3, 1, 2, 0))  # [c, fh, hw, out] => [out, fh, fw, c]
+        for i in range(dz.shape[1]):
+            for j in range(dz.shape[2]):
+                padded_dx[:, i * s0:i * s0 + k0, j * s1:j * s1 + k1, :] += dz[:, i, j, :].reshape(
+                    (-1, self.out_channels)).dot(
+                    t_flt.reshape((self.out_channels, -1))
+                ).reshape((-1, k0, k1, padded_dx.shape[-1]))
+        t, b, l, r = self._p_tblr[0], padded_dx.shape[1] - self._p_tblr[1], self._p_tblr[2], padded_dx.shape[2] - \
+                     self._p_tblr[3]
+        dx = padded_dx[:, t:b, l:r, :]
+        return dx, grads
 
 
 class Pool_(BaseLayer):
@@ -237,6 +290,9 @@ class Pool_(BaseLayer):
         out.info["new_layer_order"] = self.order + 1
         return out
 
+    def backward(self, dz):
+        raise NotImplementedError
+
     @staticmethod
     def agg_func(x):
         raise NotImplementedError
@@ -269,7 +325,8 @@ class MaxPool2D(Pool_):
                 window_mask = window == np.max(window, axis=(1, 2), keepdims=True)
                 window_dz = dz[:, i:i+1, j:j+1, :] * window_mask.astype(np.float32)
                 padded_dx[:, i*s0:i*s0+k0, j*s1:j*s1+k1, :] += window_dz
-        t, b, l, r = self._p_tblr[0], padded_dx.shape[1]-self._p_tblr[1], self._p_tblr[2], padded_dx.shape[2]-self._p_tblr[3]
+        t, b, l, r = [self._p_tblr[0], padded_dx.shape[1]-self._p_tblr[1],
+                      self._p_tblr[2], padded_dx.shape[2]-self._p_tblr[3]]
         dx = padded_dx[:, t:b, l:r, :]
         return dx, grad
 
@@ -297,10 +354,11 @@ class AvgPool2D(Pool_):
         padded_dx = np.zeros_like(self._padded)  # [n, h, w, c]
         for i in range(dz.shape[1]):
             for j in range(dz.shape[2]):
-                window_dz = dz[:, i:i + 1, j:j + 1, :] * np.full((1, k0, k1, dz.shape[-1]), 1./(k0*k1), dtype=np.float32)
+                window_dz = dz[:, i:i + 1, j:j + 1, :] * np.full(
+                    (1, k0, k1, dz.shape[-1]), 1./(k0*k1), dtype=np.float32)
                 padded_dx[:, i * s0:i * s0 + k0, j * s1:j * s1 + k1, :] += window_dz
-        t, b, l, r = self._p_tblr[0], padded_dx.shape[1] - self._p_tblr[1], self._p_tblr[2], padded_dx.shape[2] - \
-                     self._p_tblr[3]
+        t, b, l, r = [self._p_tblr[0], padded_dx.shape[1] - self._p_tblr[1],
+                      self._p_tblr[2], padded_dx.shape[2] - self._p_tblr[3]]
         dx = padded_dx[:, t:b, l:r, :]
         return dx, grad
 
@@ -350,7 +408,7 @@ def get_padded_and_tmp_out(img, kernel_size, strides, out_channels, padding):
         pt, pb, pl, pr = 0, 0, 0, 0
     else:
         raise ValueError
-    padded_img = np.pad(img, ((0, 0), (pt, pb), (pl, pr), (0, 0)), 'constant', constant_values=0.)
+    padded_img = np.pad(img, ((0, 0), (pt, pb), (pl, pr), (0, 0)), 'constant', constant_values=0.).astype(np.float32)
     tmp_out = np.zeros((batch, out_h, out_w, out_channels), dtype=np.float32)
     return padded_img, tmp_out, (pt, pb, pl, pr)
 
