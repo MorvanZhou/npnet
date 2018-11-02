@@ -40,6 +40,7 @@ for step in range(30):
     acc = nn.metrics.accuracy(o.data > 0.5, y)
     print("Step: %i | loss: %.5f | acc: %.2f" % (step, loss.data, acc))
 
+print(net.forward(x[:10]).data.ravel(), "\n", y[:10].ravel())
 plt.scatter(x[:, 0], x[:, 1], c=(o.data > 0.5).ravel(), s=100, lw=0, cmap='RdYlGn')
 plt.show()
 

@@ -9,4 +9,3 @@ from .dataloader import DataLoader
 from . import metrics
 
 from . import layers
-from . import rnn
