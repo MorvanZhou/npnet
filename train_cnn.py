@@ -13,9 +13,9 @@ class CNN(nn.Module):
     def __init__(self):
         super().__init__()
         self.seq_layers = self.sequential(
-            nn.layers.Conv2D(1, 6, (5, 5), (1, 1), "same", "channels_last"),  # => [n,28,28,6]
+            nn.layers.Conv2D(1, 6, (5, 5), (1, 1), "same", channels_last=True),  # => [n,28,28,6]
             nn.layers.MaxPool2D(2, 2),  # => [n, 14, 14, 6]
-            nn.layers.Conv2D(6, 16, 5, 1, "same", "channels_last", ),  # => [n,14,14,16]
+            nn.layers.Conv2D(6, 16, 5, 1, "same", channels_last=True),  # => [n,14,14,16]
             nn.layers.MaxPool2D(2, 2),  # => [n,7,7,16]
             nn.layers.Flatten(),  # => [n,7*7*16]
             nn.layers.Dense(7 * 7 * 16, 10, )

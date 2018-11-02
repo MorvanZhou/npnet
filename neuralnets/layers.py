@@ -7,24 +7,31 @@ class BaseLayer:
         self.order = None
         self.name = None
         self._x = None
+        self.data_vars = {}
 
     def forward(self, x):
         raise NotImplementedError
 
-    def backward(self, dz):
+    def backward(self):
         raise NotImplementedError
 
     def _process_input(self, x):
         if isinstance(x, np.ndarray):
-            self.order = 0  # use layer input's information to set layer order
-            _x = x.astype(np.float32)
-        elif isinstance(x, nn.Variable):
-            # x is Variable, extract _x value from x.data
-            self.order = x.info["new_layer_order"]
-            _x = x.data
-        else:
-            raise ValueError
+            x = x.astype(np.float32)
+            x = nn.Variable(x)
+            x.info["new_layer_order"] = 0
+
+        self.data_vars["in"] = x
+        # x is Variable, extract _x value from x.data
+        self.order = x.info["new_layer_order"]
+        _x = x.data
         return _x
+
+    def _wrap_out(self, out):
+        out = nn.Variable(out)
+        out.info["new_layer_order"] = self.order + 1
+        self.data_vars["out"] = out     # add to layer's data_vars
+        return out
 
     def __call__(self, x):
         return self.forward(x)
@@ -33,14 +40,14 @@ class BaseLayer:
 class ParamLayer(BaseLayer):
     def __init__(self, w_shape, activation, w_initializer, b_initializer, use_bias):
         super().__init__()
-        self.vars = {}
+        self.param_vars = {}
         self.w = np.empty(w_shape, dtype=np.float32)
-        self.vars["w"] = self.w
+        self.param_vars["w"] = self.w
         if use_bias:
             shape = [1]*len(w_shape)
             shape[-1] = w_shape[-1]     # only have bias on the last dimension
             self.b = np.empty(shape, dtype=np.float32)
-            self.vars["b"] = self.b
+            self.param_vars["b"] = self.b
         self.use_bias = use_bias
 
         if activation is None:
@@ -71,7 +78,7 @@ class ParamLayer(BaseLayer):
     def forward(self, x):
         raise NotImplementedError
 
-    def backward(self, dz):
+    def backward(self):
         raise NotImplementedError
 
 
@@ -101,19 +108,19 @@ class Dense(ParamLayer):
             self._wx_b += self.b
 
         self._activated = self._a(self._wx_b)   # if act is None, act will be Linear
-        out = nn.Variable(self._activated)
-        out.info["new_layer_order"] = self.order + 1
-        return out
+        wrapped_out = self._wrap_out(self._activated)
+        return wrapped_out
 
-    def backward(self, dz):
+    def backward(self):
         # dw, db
-        dz = dz * self._a.derivative(self._wx_b)
+        dz = self.data_vars["out"].error
+        dz *= self._a.derivative(self._wx_b)
         grads = {"w": self._x.T.dot(dz)}
         if self.use_bias:
             grads["b"] = np.sum(dz, axis=0, keepdims=True)
         # dx
-        dx = dz.dot(self.w.T)
-        return dx, grads
+        self.data_vars["in"].set_error(dz.dot(self.w.T))     # pass error to the layer before
+        return grads
 
 
 class Conv2D(ParamLayer):
@@ -123,7 +130,7 @@ class Conv2D(ParamLayer):
                  kernel_size=(3, 3),
                  strides=(1, 1),
                  padding='valid',
-                 data_format='channels_last',
+                 channels_last=True,
                  activation=None,
                  w_initializer=None,
                  b_initializer=None,
@@ -142,14 +149,13 @@ class Conv2D(ParamLayer):
         self.padding = padding.lower()
         assert padding in ("valid", "same"), ValueError
 
-        self.data_format = data_format.lower()
-        assert self.data_format in ("channels_last", "channels_first"), ValueError
+        self.channels_last = channels_last
         self._padded = None
         self._p_tblr = None     # padded dim from top, bottom, left, right
 
     def forward(self, x):
         self._x = self._process_input(x)
-        if self.data_format == "channels_first":
+        if not self.channels_last:  # channels_first
             # [batch, channel, height, width] => [batch, height, width, channel]
             self._x = np.transpose(self._x, (0, 2, 3, 1))
         self._padded, tmp_conved, self._p_tblr = get_padded_and_tmp_out(
@@ -161,15 +167,15 @@ class Conv2D(ParamLayer):
             self._wx_b += self.b
 
         self._activated = self._a(self._wx_b)
-        out = nn.Variable(
-            self._activated if self.data_format == "channels_last" else self._activated.transpose((0, 3, 1, 2)))
-        out.info["new_layer_order"] = self.order + 1
-        return out
+        wrapped_out = self._wrap_out(
+            self._activated if self.channels_last else self._activated.transpose((0, 3, 1, 2)))
+        return wrapped_out
 
-    def backward(self, dz):
+    def backward(self):
         # according to:
         # https://medium.com/@2017csm1006/forward-and-backpropagation-in-convolutional-neural-network-4dfa96d7b37e
-        dz[:] = dz * self._a.derivative(self._wx_b)
+        dz = self.data_vars["out"].error
+        dz *= self._a.derivative(self._wx_b)
 
         # dw, db
         dw = np.empty_like(self.w)  # [c,h,w,out]
@@ -190,8 +196,8 @@ class Conv2D(ParamLayer):
                                                         ).reshape((-1, k0, k1, padded_dx.shape[-1]))
         t, b, l, r = [self._p_tblr[0], padded_dx.shape[1] - self._p_tblr[1],
                       self._p_tblr[2], padded_dx.shape[2] - self._p_tblr[3]]
-        dx = padded_dx[:, t:b, l:r, :]
-        return dx, grads
+        self.data_vars["in"].set_error(padded_dx[:, t:b, l:r, :])      # pass error to the layer before
+        return grads
 
     def convolution(self, x, flt, conved):
         batch_size = x.shape[0]
@@ -228,8 +234,9 @@ class Conv2D(ParamLayer):
         wx = self._padded_col.dot(w_t)  # [n*oh*ow, fh*fw*c] dot [fh*fw*c, oc] => [n*oh*ow, oc]
         return wx.reshape(conved.shape)
 
-    def fast_backward(self, dz):
-        dz[:] = dz * self._a.derivative(self._wx_b)
+    def fast_backward(self):
+        dz = self.data_vars["out"].error
+        dz *= self._a.derivative(self._wx_b)
 
         # dw, db
         dz_reshape = dz.reshape(-1, self.out_channels)      # => [n*oh*ow, oc]
@@ -252,8 +259,8 @@ class Conv2D(ParamLayer):
                 ).reshape((-1, k0, k1, padded_dx.shape[-1]))
         t, b, l, r = self._p_tblr[0], padded_dx.shape[1] - self._p_tblr[1], self._p_tblr[2], padded_dx.shape[2] - \
                      self._p_tblr[3]
-        dx = padded_dx[:, t:b, l:r, :]
-        return dx, grads
+        self.data_vars["in"].set_error(padded_dx[:, t:b, l:r, :])      # pass the error to the layer before
+        return grads
 
 
 class Pool_(BaseLayer):
@@ -261,21 +268,20 @@ class Pool_(BaseLayer):
                  kernal_size=(3, 3),
                  strides=(1, 1),
                  padding="valid",
-                 data_format='channels_last',
+                 channels_last=True,
                  ):
         super().__init__()
         self.kernel_size = get_tuple(kernal_size)
         self.strides = get_tuple(strides)
         self.padding = padding.lower()
         assert padding in ("valid", "same"), ValueError
-        self.data_format = data_format.lower()
-        assert self.data_format in ("channels_last", "channels_first"), ValueError
+        self.channels_last = channels_last
         self._padded = None
         self._p_tblr = None
 
     def forward(self, x):
         self._x = self._process_input(x)
-        if self.data_format == "channels_first":
+        if not self.channels_last:  # "channels_first":
             # [batch, channel, height, width] => [batch, height, width, channel]
             self._x = np.transpose(self._x, (0, 2, 3, 1))
         self._padded, out, self._p_tblr = get_padded_and_tmp_out(
@@ -285,12 +291,10 @@ class Pool_(BaseLayer):
             for j in range(0, out.shape[2]):  # in each column of the convoluted feature map
                 window = self._padded[:, i*s0:i*s0+k0, j*s1:j*s1+k1, :]  # [n,h,w,c]
                 out[:, i, j, :] = self.agg_func(window)
-        out = nn.Variable(
-            out if self.data_format == "channels_last" else out.transpose((0, 3, 1, 2)))
-        out.info["new_layer_order"] = self.order + 1
-        return out
+        wrapped_out = self._wrap_out(out if self.channels_last else out.transpose((0, 3, 1, 2)))
+        return wrapped_out
 
-    def backward(self, dz):
+    def backward(self):
         raise NotImplementedError
 
     @staticmethod
@@ -303,19 +307,20 @@ class MaxPool2D(Pool_):
                  pool_size=(3, 3),
                  strides=(1, 1),
                  padding="valid",
-                 data_format='channels_last',
+                 channels_last=True,
                  ):
         super().__init__(
             kernal_size=pool_size,
             strides=strides,
             padding=padding,
-            data_format=data_format,)
+            channels_last=channels_last,)
 
     @staticmethod
     def agg_func(x):
         return x.max(axis=(1, 2))
 
-    def backward(self, dz):
+    def backward(self):
+        dz = self.data_vars["out"].error
         grad = None
         s0, s1, k0, k1 = self.strides + self.kernel_size
         padded_dx = np.zeros_like(self._padded)  # [n, h, w, c]
@@ -327,8 +332,8 @@ class MaxPool2D(Pool_):
                 padded_dx[:, i*s0:i*s0+k0, j*s1:j*s1+k1, :] += window_dz
         t, b, l, r = [self._p_tblr[0], padded_dx.shape[1]-self._p_tblr[1],
                       self._p_tblr[2], padded_dx.shape[2]-self._p_tblr[3]]
-        dx = padded_dx[:, t:b, l:r, :]
-        return dx, grad
+        self.data_vars["in"].set_error(padded_dx[:, t:b, l:r, :])      # pass the error to the layer before
+        return grad
 
 
 class AvgPool2D(Pool_):
@@ -336,19 +341,20 @@ class AvgPool2D(Pool_):
                  kernal_size=(3, 3),
                  strides=(1, 1),
                  padding="valid",
-                 data_format='channels_last',
+                 channels_last=True,
                  ):
         super().__init__(
             kernal_size=kernal_size,
             strides=strides,
             padding=padding,
-            data_format=data_format,)
+            channels_last=channels_last,)
 
     @staticmethod
     def agg_func(x):
         return x.mean(axis=(1, 2))
 
-    def backward(self, dz):
+    def backward(self):
+        dz = self.data_vars["out"].error
         grad = None
         s0, s1, k0, k1 = self.strides + self.kernel_size
         padded_dx = np.zeros_like(self._padded)  # [n, h, w, c]
@@ -359,8 +365,8 @@ class AvgPool2D(Pool_):
                 padded_dx[:, i * s0:i * s0 + k0, j * s1:j * s1 + k1, :] += window_dz
         t, b, l, r = [self._p_tblr[0], padded_dx.shape[1] - self._p_tblr[1],
                       self._p_tblr[2], padded_dx.shape[2] - self._p_tblr[3]]
-        dx = padded_dx[:, t:b, l:r, :]
-        return dx, grad
+        self.data_vars["in"].set_error(padded_dx[:, t:b, l:r, :])  # pass the error to the layer before
+        return grad
 
 
 class Flatten(BaseLayer):
@@ -370,14 +376,14 @@ class Flatten(BaseLayer):
     def forward(self, x):
         self._x = self._process_input(x)
         out = self._x.reshape((self._x.shape[0], -1))
-        out = nn.Variable(out)
-        out.info["new_layer_order"] = self.order + 1
-        return out
+        wrapped_out = self._wrap_out(out)
+        return wrapped_out
 
-    def backward(self, dz):
+    def backward(self):
+        dz = self.data_vars["out"].error
         grad = None
-        dx = dz.reshape(self._x.shape)
-        return dx, grad
+        self.data_vars["in"].set_error(dz.reshape(self._x.shape))
+        return grad
 
 
 def get_tuple(inputs):

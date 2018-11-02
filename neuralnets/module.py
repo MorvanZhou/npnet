@@ -23,11 +23,12 @@ class Module(object):
         self._ordered_layers = [l[1] for l in sorted(layers, key=lambda x: x[0])]
 
         # back propagate through this order
-        dz = loss.delta
+        last_layer = self._ordered_layers[-1]
+        last_layer.data_vars["out"].set_error(loss.delta)
         for layer in self._ordered_layers[::-1]:
-            dz, grads = layer.backward(dz)
+            grads = layer.backward()
             if isinstance(layer, nn.layers.ParamLayer):
-                for k in layer.vars.keys():
+                for k in layer.param_vars.keys():
                     self.params[layer.name]["grads"][k][:] = grads[k]
 
     def save(self, path):
@@ -51,8 +52,8 @@ class Module(object):
         if isinstance(value, nn.layers.ParamLayer):
             layer = value
             self.params[key] = {
-                "vars": layer.vars,
-                "grads": {k: np.empty_like(layer.vars[k]) for k in layer.vars.keys()}
+                "vars": layer.param_vars,
+                "grads": {k: np.empty_like(layer.param_vars[k]) for k in layer.param_vars.keys()}
             }
         object.__setattr__(self, key, value)
 
