@@ -1,5 +1,5 @@
 import numpy as np
-import neuralnets as nn
+import npnet
 import matplotlib.pyplot as plt
 
 np.random.seed(1)
@@ -7,11 +7,11 @@ x = np.linspace(-1, 1, 200)[:, None]       # [batch, 1]
 y = x ** 2 + np.random.normal(0., 0.1, (200, 1))     # [batch, 1]
 
 
-class Net(nn.Module):
+class Net(npnet.Module):
     def __init__(self):
         super().__init__()
-        self.l1 = nn.layers.Dense(1, 10, nn.act.tanh)
-        self.out = nn.layers.Dense(10, 1, )
+        self.l1 = npnet.layers.Dense(1, 10, npnet.act.tanh)
+        self.out = npnet.layers.Dense(10, 1, )
 
     def forward(self, x):
         x = self.l1(x)
@@ -20,8 +20,8 @@ class Net(nn.Module):
 
 
 net1 = Net()
-opt = nn.optim.Adam(net1.params, lr=0.1)
-loss_fn = nn.losses.MSE()
+opt = npnet.optim.Adam(net1.params, lr=0.1)
+loss_fn = npnet.losses.MSE()
 
 for _ in range(1000):
     o = net1.forward(x)

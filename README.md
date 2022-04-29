@@ -13,14 +13,15 @@ So please feel free to read the codes.
 
 ## Simple usage
 Build a network with a python class and train it.
-```python
-import neuralnets as nn
 
-class Net(nn.Module):
+```python
+import npnet
+
+class Net(npnet.Module):
     def __init__(self):
         super().__init__()
-        self.l1 = nn.layers.Dense(n_in=1, n_out=10, activation=nn.act.tanh)
-        self.out = nn.layers.Dense(10, 1)
+        self.l1 = npnet.layers.Dense(n_in=1, n_out=10, activation=npnet.act.tanh)
+        self.out = npnet.layers.Dense(10, 1)
 
     def forward(self, x):
         x = self.l1(x)
@@ -28,12 +29,12 @@ class Net(nn.Module):
         return o
 ```
 
-The training procedure starts by defining a optimizer and loss.
+The training procedure starts by defining an optimizer and loss.
 
 ```python
 net = Net()
-opt = nn.optim.Adam(net.params, lr=0.1)
-loss_fn = nn.losses.MSE()
+opt = npnet.optim.Adam(net.params, lr=0.1)
+loss_fn = npnet.losses.MSE()
 
 for _ in range(1000):
     o = net.forward(x)
@@ -45,15 +46,21 @@ for _ in range(1000):
 
 
 ## Demo
-* A naked and step-by-step [network](/simple_nn.py) without using my module.
-* [Train regressor](/train_regressor.py)
-* [Train classifier](/train_classifier.py)
-* [Train CNN](/train_cnn.py)
-* [Save and restore a trained net](/save_model.py)
+* A naked and step-by-step [network](/tests/simple_nn.py) without using my module.
+* [Train regressor](/tests/train_regressor.py)
+* [Train classifier](/tests/train_classifier.py)
+* [Train CNN](/tests/train_cnn.py)
+* [Save and restore a trained net](/tests/save_model.py)
 
+
+## Install
+
+```
+pip install npnet
+```
 
 ## Download or fork
-Download [link](https://github.com/MorvanZhou/simple-neural-networks/archive/master.zip)
+Download [link](https://github.com/MorvanZhou/npnet/archive/master.zip)
 
 Fork this repo:
 ```

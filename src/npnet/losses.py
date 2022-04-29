@@ -1,5 +1,5 @@
 import numpy as np
-from .activations import softmax
+from npnet.activations import softmax
 
 
 class Loss:

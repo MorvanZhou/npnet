@@ -1,5 +1,5 @@
 import numpy as np
-import neuralnets as nn
+import npnet as nn
 
 
 class Module(object):

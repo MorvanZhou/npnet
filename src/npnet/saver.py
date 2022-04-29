@@ -1,5 +1,5 @@
 import pickle
-import neuralnets as nn
+import npnet as nn
 
 
 class Saver:
