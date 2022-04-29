@@ -64,7 +64,7 @@ Download [link](https://github.com/MorvanZhou/npnet/archive/master.zip)
 
 Fork this repo:
 ```
-$ git clone https://github.com/MorvanZhou/simple-neural-networks.git
+$ git clone https://github.com/MorvanZhou/npnet.git
 ```
 
 ## Results
