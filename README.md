@@ -46,11 +46,11 @@ for _ in range(1000):
 
 
 ## Demo
-* A naked and step-by-step [network](/tests/simple_nn.py) without using my module.
-* [Train regressor](/tests/train_regressor.py)
-* [Train classifier](/tests/train_classifier.py)
-* [Train CNN](/tests/train_cnn.py)
-* [Save and restore a trained net](/tests/save_model.py)
+* A naked and step-by-step [network](https://github.com/MorvanZhou/npnet/tree/master/tests/simple_nn.py) without using my module.
+* [Train regressor](https://github.com/MorvanZhou/npnet/tree/master/tests/train_regressor.py)
+* [Train classifier](https://github.com/MorvanZhou/npnet/tree/master/tests/train_classifier.py)
+* [Train CNN](https://github.com/MorvanZhou/npnet/tree/master/tests/train_cnn.py)
+* [Save and restore a trained net](https://github.com/MorvanZhou/npnet/tree/master/tests/save_model.py)
 
 
 ## Install
@@ -68,4 +68,4 @@ $ git clone https://github.com/MorvanZhou/npnet.git
 ```
 
 ## Results
-![img](/demo.png)
+![img](https://raw.githubusercontent.com/MorvanZhou/npnet/master/demo.png)
