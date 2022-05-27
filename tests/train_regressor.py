@@ -1,6 +1,8 @@
 import numpy as np
-import npnet
 import matplotlib.pyplot as plt
+
+import npnet
+
 
 np.random.seed(1)
 x = np.linspace(-1, 1, 200)[:, None]       # [batch, 1]

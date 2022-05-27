@@ -1,4 +1,8 @@
+from __future__ import annotations
+import typing
+
 import numpy as np
+
 import npnet as nn
 
 
@@ -9,13 +13,13 @@ class BaseLayer:
         self._x = None
         self.data_vars = {}
 
-    def forward(self, x):
+    def forward(self, x: typing.Union[np.ndarray, nn.Variable]) -> nn.Variable:
         raise NotImplementedError
 
     def backward(self):
         raise NotImplementedError
 
-    def _process_input(self, x):
+    def _process_input(self, x: typing.Union[nn.Variable, np.ndarray]) -> np.ndarray:
         if isinstance(x, np.ndarray):
             x = x.astype(np.float32)
             x = nn.Variable(x)
@@ -27,7 +31,7 @@ class BaseLayer:
         _x = x.data
         return _x
 
-    def _wrap_out(self, out):
+    def _wrap_out(self, out) -> nn.Variable:
         out = nn.Variable(out)
         out.info["new_layer_order"] = self.order + 1
         self.data_vars["out"] = out     # add to layer's data_vars
@@ -75,7 +79,7 @@ class ParamLayer(BaseLayer):
         self._wx_b = None
         self._activated = None
 
-    def forward(self, x):
+    def forward(self, x: typing.Union[nn.Variable, np.ndarray]) -> nn.Variable:
         raise NotImplementedError
 
     def backward(self):

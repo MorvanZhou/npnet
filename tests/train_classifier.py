@@ -1,6 +1,8 @@
 import numpy as np
-import npnet
 import matplotlib.pyplot as plt
+
+import npnet
+
 
 np.random.seed(1)
 x0 = np.random.normal(-2, 1, (100, 2))
@@ -9,7 +11,6 @@ y0 = np.zeros((100, 1), dtype=np.int32)
 y1 = np.ones((100, 1), dtype=np.int32)
 x = np.concatenate((x0, x1), axis=0)
 y = np.concatenate((y0, y1), axis=0)
-
 
 
 class Net(npnet.Module):

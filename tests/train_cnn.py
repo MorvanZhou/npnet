@@ -37,7 +37,7 @@ for step in range(300):
     loss = loss_fn(by_, by)
     cnn.backward(loss)
     opt.step()
-    if step % 50 == 0:
+    if step % 20 == 0:
         ty_ = cnn.forward(test_x)
         acc = npnet.metrics.accuracy(np.argmax(ty_.data, axis=1), test_y)
         print("Step: %i | loss: %.3f | acc: %.2f" % (step, loss.data, acc))
