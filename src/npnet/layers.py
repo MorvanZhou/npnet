@@ -1,23 +1,26 @@
 from __future__ import annotations
 import typing
+from abc import ABCMeta, abstractmethod
 
 import numpy as np
 
 import npnet as nn
 
 
-class BaseLayer:
+class BaseLayer(metaclass=ABCMeta):
     def __init__(self):
         self.order = None
         self.name = None
         self._x = None
         self.data_vars = {}
 
+    @abstractmethod
     def forward(self, x: typing.Union[np.ndarray, nn.Variable]) -> nn.Variable:
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def backward(self):
-        raise NotImplementedError
+        pass
 
     def _process_input(self, x: typing.Union[nn.Variable, np.ndarray]) -> np.ndarray:
         if isinstance(x, np.ndarray):
@@ -78,12 +81,6 @@ class ParamLayer(BaseLayer):
 
         self._wx_b = None
         self._activated = None
-
-    def forward(self, x: typing.Union[nn.Variable, np.ndarray]) -> nn.Variable:
-        raise NotImplementedError
-
-    def backward(self):
-        raise NotImplementedError
 
 
 class Dense(ParamLayer):
@@ -267,7 +264,7 @@ class Conv2D(ParamLayer):
         return grads
 
 
-class Pool_(BaseLayer):
+class Pool_(BaseLayer, metaclass=ABCMeta):
     def __init__(self,
                  kernal_size=(3, 3),
                  strides=(1, 1),
@@ -298,10 +295,8 @@ class Pool_(BaseLayer):
         wrapped_out = self._wrap_out(out if self.channels_last else out.transpose((0, 3, 1, 2)))
         return wrapped_out
 
-    def backward(self):
-        raise NotImplementedError
-
     @staticmethod
+    @abstractmethod
     def agg_func(x):
         raise NotImplementedError
 

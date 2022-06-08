@@ -1,9 +1,12 @@
+from abc import ABCMeta, abstractmethod
+
 import numpy as np
 
 
-class BaseInitializer:
+class BaseInitializer(metaclass=ABCMeta):
+    @abstractmethod
     def initialize(self, x):
-        raise NotImplementedError
+        pass
 
 
 class RandomNormal(BaseInitializer):

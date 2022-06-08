@@ -1,3 +1,5 @@
+from abc import ABCMeta, abstractmethod
+
 import numpy as np
 from npnet.activations import softmax
 
@@ -11,17 +13,19 @@ class Loss:
         return str(self.data)
 
 
-class LossFunction:
+class LossFunction(metaclass=ABCMeta):
     def __init__(self):
         self._pred = None
         self._target = None
 
+    @abstractmethod
     def apply(self, prediction, target):
-        raise NotImplementedError
+        pass
 
     @property
+    @abstractmethod
     def delta(self):
-        raise NotImplementedError
+        pass
 
     def _store_pred_target(self, prediction, target):
         p = prediction.data
@@ -49,17 +53,14 @@ class MSE(LossFunction):
         return self._pred - t
 
 
-class CrossEntropy(LossFunction):
+class CrossEntropy(LossFunction, metaclass=ABCMeta):
     def __init__(self):
         super().__init__()
         self._eps = 1e-6
 
+    @abstractmethod
     def apply(self, prediction, target):
-        raise NotImplementedError
-
-    @property
-    def delta(self):
-        raise NotImplementedError
+        pass
 
 
 class SoftMaxCrossEntropy(CrossEntropy):

@@ -1,7 +1,9 @@
+from abc import ABCMeta, abstractmethod
+
 import numpy as np
 
 
-class Optimizer:
+class Optimizer(metaclass=ABCMeta):
     def __init__(self, params, lr):
         self._params = params
         self._lr = lr
@@ -12,8 +14,9 @@ class Optimizer:
                 self.vars.append(layer_p["vars"][p_name])
                 self.grads.append(layer_p["grads"][p_name])
 
+    @abstractmethod
     def step(self):
-        raise NotImplementedError
+        pass
 
 
 class SGD(Optimizer):
