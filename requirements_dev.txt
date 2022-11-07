@@ -1,3 +1,5 @@
 matplotlib==3.5.0
 flake8==3.9.2
 tox==3.24.3
+twine
+build
