@@ -1,5 +1,6 @@
 matplotlib>=3.3.4
 flake8==3.9.2
 tox==3.24.3
+tox-conda
 twine
 build
