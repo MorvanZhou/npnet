@@ -264,15 +264,16 @@ class Conv2D(ParamLayer):
         return grads
 
 
-class Pool_(BaseLayer, metaclass=ABCMeta):
-    def __init__(self,
-                 kernal_size=(3, 3),
-                 strides=(1, 1),
-                 padding="valid",
-                 channels_last=True,
-                 ):
+class _Pool(BaseLayer, metaclass=ABCMeta):
+    def __init__(
+            self,
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            padding="valid",
+            channels_last=True,
+    ):
         super().__init__()
-        self.kernel_size = get_tuple(kernal_size)
+        self.kernel_size = get_tuple(kernel_size)
         self.strides = get_tuple(strides)
         self.padding = padding.lower()
         assert padding in ("valid", "same"), ValueError
@@ -301,7 +302,7 @@ class Pool_(BaseLayer, metaclass=ABCMeta):
         raise NotImplementedError
 
 
-class MaxPool2D(Pool_):
+class MaxPool2D(_Pool):
     def __init__(self,
                  pool_size=(3, 3),
                  strides=(1, 1),
@@ -309,7 +310,7 @@ class MaxPool2D(Pool_):
                  channels_last=True,
                  ):
         super().__init__(
-            kernal_size=pool_size,
+            kernel_size=pool_size,
             strides=strides,
             padding=padding,
             channels_last=channels_last,)
@@ -335,18 +336,20 @@ class MaxPool2D(Pool_):
         return grad
 
 
-class AvgPool2D(Pool_):
-    def __init__(self,
-                 kernal_size=(3, 3),
-                 strides=(1, 1),
-                 padding="valid",
-                 channels_last=True,
-                 ):
+class AvgPool2D(_Pool):
+    def __init__(
+            self,
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            padding="valid",
+            channels_last=True,
+    ):
         super().__init__(
-            kernal_size=kernal_size,
+            kernel_size=kernel_size,
             strides=strides,
             padding=padding,
-            channels_last=channels_last,)
+            channels_last=channels_last,
+        )
 
     @staticmethod
     def agg_func(x):
